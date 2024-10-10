@@ -1,6 +1,6 @@
 require("dotenv").config();
 const { Client, GatewayIntentBits } = require('discord.js');
-const client = new Client({ intents: ["Guilds"] });
+const client = new Client({ intents: ["Guilds", "GuildMessages", "MessageContent"] });
 
 const parameters = [
     'utm_source',
@@ -14,7 +14,7 @@ const parameters = [
     'adType',
     'eventId'];
 
-function removeTrackingParameters(url, trackingParams) {
+function removeTrackingParameters(url) {
     let urlObj
     try {
         urlObj = new URL(url);
@@ -23,7 +23,7 @@ function removeTrackingParameters(url, trackingParams) {
     }
     const removedParams = []
 
-    trackingParams.forEach(param => {
+    parameters.forEach(param => {
         if (urlObj.searchParams.has(param)) {
             removedParams.push(param);
             urlObj.searchParams.delete(param)
@@ -32,16 +32,33 @@ function removeTrackingParameters(url, trackingParams) {
 
     return { cleanUrl: urlObj.toString(), removedParams, error: null }
 }
+function detectUrls(text) {
+    const urlPattern = /https?:\/\/[^\s/$.?#].[^\s]*/g;
+    return text.match(urlPattern) || [];
+}
 
 client.on('ready', () => {
     console.log(`Logged in as ${client.user.tag}!`)
+});
+
+client.on('messageCreate', (message) => {
+    if (message.author.bot) return;
+    const foundUrls = detectUrls(message.content);
+    if (foundUrls.length > 0) {
+        foundUrls.forEach(url => {
+            const { cleanUrl, removedParams, error } = removeTrackingParameters(url);
+            if (removedParams.length > 0) {
+                message.reply(`추적 태그가 감지되었습니다: \n<${cleanUrl}>\n제거된 파라미터: ${removedParams.join(', ')}`);
+            }
+        });
+    }
 });
 
 client.on('interactionCreate', async (interaction) => {
     if (interaction.isCommand()) {
         if (interaction.commandName === "단축") {
             const link = interaction.options.getString("link")
-            const { cleanUrl, removedParams, error } = removeTrackingParameters(link, parameters)
+            const { cleanUrl, removedParams, error } = removeTrackingParameters(link)
             if (error) {
                 await interaction.reply({ 
                     content: `에러: ${error}`, 
