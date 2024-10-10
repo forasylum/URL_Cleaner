@@ -15,32 +15,44 @@ const parameters = [
     'eventId'];
 
 function removeTrackingParameters(url, trackingParams) {
-    const urlObj = new URL(url);
-    const removedParams = [];
+    let urlObj
+    try {
+        urlObj = new URL(url);
+    } catch (error) {
+        return { cleanUrl: '', removedParams: [], error: '유효하지 않은 URL입니다.' }
+    }
+    const removedParams = []
 
     trackingParams.forEach(param => {
         if (urlObj.searchParams.has(param)) {
             removedParams.push(param);
-            urlObj.searchParams.delete(param);
+            urlObj.searchParams.delete(param)
         }
     });
 
-    return { cleanUrl: urlObj.toString(), removedParams };
+    return { cleanUrl: urlObj.toString(), removedParams, error: null }
 }
 
 client.on('ready', () => {
-    console.log(`Logged in as ${client.user.tag}!`);
+    console.log(`Logged in as ${client.user.tag}!`)
 });
 
 client.on('interactionCreate', async (interaction) => {
     if (interaction.isCommand()) {
         if (interaction.commandName === "단축") {
-            const link = interaction.options.getString("link");
-            const { cleanUrl, removedParams } = removeTrackingParameters(link, parameters);
-            interaction.reply({ 
-                content: `링크: ${cleanUrl}\n제거된 파라미터: ${removedParams.join(', ') || '추적 태그가 없습니다.'}`, 
-                ephemeral: false 
-            });
+            const link = interaction.options.getString("link")
+            const { cleanUrl, removedParams, error } = removeTrackingParameters(link, parameters)
+            if (error) {
+                await interaction.reply({ 
+                    content: `에러: ${error}`, 
+                    ephemeral: true
+                });
+            } else {
+                await interaction.reply({ 
+                    content: `링크: ${cleanUrl}\n제거된 파라미터: ${removedParams.join(', ') || '추적 태그가 없습니다.'}`, 
+                    ephemeral: false 
+                });
+            }
         }
     }
 });
